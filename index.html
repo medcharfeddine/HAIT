@@ -242,6 +242,8 @@ const STORE_COUNT = 33;
 let stores = [];
 let trips = [];
 let editingStores = false;
+let editingTripId = null;
+let activeStoreCode = null;
 
 const CATEGORIES = ["Ordinateur","Imprimante","Caméra / vidéosurveillance","Réseau (switch/routeur/wifi)","Caisse / TPE","Autre"];
 const ACTIONS = ["Réparé sur place","Remplacé (matériel neuf)","Remplacé (matériel reconditionné)","Diagnostiqué — pièce nécessaire","Diagnostiqué — en attente de décision","Non résolu"];
@@ -275,6 +277,67 @@ async function saveStores(){
 }
 async function saveTrips(){
   try{ localStorage.setItem('ha-trips', JSON.stringify(trips)); }catch(e){console.error(e);}
+}
+
+async function updateItemStatus(tripId, itemId, resolu){
+  const trip = trips.find(t=>t.id===tripId);
+  if(!trip) return;
+  const item = trip.items.find(i=>i.id===itemId);
+  if(!item) return;
+  item.resolu = resolu;
+  await saveTrips();
+}
+
+async function deleteTrip(tripId){
+  const index = trips.findIndex(t=>t.id===tripId);
+  if(index === -1) return;
+  trips.splice(index, 1);
+  await saveTrips();
+}
+
+async function deleteItem(tripId, itemId){
+  const trip = trips.find(t=>t.id===tripId);
+  if(!trip) return;
+  const index = trip.items.findIndex(i=>i.id===itemId);
+  if(index === -1) return;
+  trip.items.splice(index, 1);
+  await saveTrips();
+}
+
+async function saveTripEdits(tripId){
+  const card = document.querySelector(`[data-edit-card="${tripId}"]`);
+  if(!card) return;
+  const motif = card.querySelector('[data-edit-trip-motif]').value.trim();
+  const km = card.querySelector('[data-edit-trip-km]').value;
+  const notes = card.querySelector('[data-edit-trip-notes]').value.trim();
+  if(!motif){
+    alert('Merci de renseigner un motif.');
+    return;
+  }
+  const trip = trips.find(t=>t.id===tripId);
+  if(!trip) return;
+  trip.motif = motif;
+  trip.km = km ? Number(km) : null;
+  trip.notes = notes;
+  trip.items = trip.items.map(item => {
+    const row = card.querySelector(`[data-edit-item-id="${item.id}"]`);
+    if(!row) return item;
+    const categorie = row.querySelector('[data-edit-item-categorie]').value;
+    const action = row.querySelector('[data-edit-item-action]').value;
+    const panne = row.querySelector('[data-edit-item-panne]').value.trim();
+    const resolu = row.querySelector('[data-edit-item-resolu]').checked;
+    return { ...item, categorie, action, panne, resolu };
+  }).filter(item => item.panne || item.categorie || item.action);
+  await saveTrips();
+  editingTripId = null;
+  if(activeStoreCode) renderStoreDetail(activeStoreCode);
+  renderDashboard();
+  renderStores();
+}
+
+function cancelTripEdit(){
+  editingTripId = null;
+  if(activeStoreCode) renderStoreDetail(activeStoreCode);
 }
 
 function allOpenItems(){
@@ -509,6 +572,7 @@ document.getElementById('edit-stores-toggle').addEventListener('click', (e)=>{
 });
 
 function renderStoreDetail(code){
+  activeStoreCode = code;
   goToView('store-detail');
   const s = stores.find(x=>x.code===code);
   const storeTrips = trips.filter(t=>t.storeCode===code).sort((a,b)=>new Date(b.date)-new Date(a.date));
@@ -518,21 +582,59 @@ function renderStoreDetail(code){
     <div class="needs-item">
       <div class="top"><span>${escapeHtml(it.categorie)}</span><span class="age">${daysSince(it.date)}j</span></div>
       <div class="desc">${escapeHtml(it.panne)}<br><span style="color:var(--ink-soft); font-weight:400;">Action notée: ${escapeHtml(it.action)}</span></div>
+      <button class="btn btn-sm btn-orange" data-toggle-status="${it.id}" data-trip-id="${it.tripId}" data-new-value="1" style="margin-top:8px;">Marquer résolu</button>
     </div>`).join('') : '<div class="empty">Aucun besoin ouvert pour ce magasin.</div>';
 
-  let histHtml = storeTrips.length ? storeTrips.map(t=>`
-    <div class="card" style="margin-bottom:10px;">
-      <div style="display:flex; justify-content:space-between; font-size:12.5px; color:var(--ink-soft);">
-        <span style="font-family:var(--mono);">${fmtDate(t.date)}</span>
-        ${t.km?`<span>${t.km} km</span>`:''}
-      </div>
-      <div style="font-weight:600; margin:4px 0 8px;">${escapeHtml(t.motif)}</div>
-      ${t.items.map(it=>`<div style="font-size:13px; margin-bottom:4px;">
-        <span class="badge ${it.resolu?'badge-ok':'badge-open'}" style="margin-right:6px;">${it.resolu?'résolu':'ouvert'}</span>
-        ${escapeHtml(it.categorie)} — ${escapeHtml(it.panne)} <span style="color:var(--ink-soft);">(${escapeHtml(it.action)})</span>
-      </div>`).join('')}
-      ${t.notes?`<div style="font-size:12.5px; color:var(--ink-soft); margin-top:6px; border-top:1px solid var(--border); padding-top:6px;">${escapeHtml(t.notes)}</div>`:''}
-    </div>`).join('') : '<div class="empty">Pas encore de visite enregistrée.</div>';
+  const itemOptions = (selected, list) => list.map(option => `<option${option===selected ? ' selected' : ''}>${escapeHtml(option)}</option>`).join('');
+
+  let histHtml = storeTrips.length ? storeTrips.map(t => {
+    if(editingTripId === t.id){
+      return `
+      <div class="card" style="margin-bottom:10px;" data-edit-card="${t.id}">
+        <div style="display:flex; justify-content:space-between; font-size:12.5px; color:var(--ink-soft);">
+          <span style="font-family:var(--mono);">${fmtDate(t.date)}</span>
+          ${t.km?`<span>${t.km} km</span>`:''}
+        </div>
+        <div class="field"><label>Motif</label><input type="text" data-edit-trip-motif value="${escapeHtml(t.motif)}"></div>
+        <div class="grid-2"><div class="field"><label>Km</label><input type="number" data-edit-trip-km value="${t.km||''}"></div><div class="field"><label>Notes</label><textarea data-edit-trip-notes>${escapeHtml(t.notes)}</textarea></div></div>
+        ${t.items.map(it => `
+          <div class="item-row" data-edit-item-id="${it.id}" style="margin-bottom:10px; position:relative;">
+            <button class="btn btn-sm btn-danger-outline" type="button" data-delete-edit-item="${it.id}" style="position:absolute; top:10px; right:10px;">Supprimer</button>
+            <div class="grid-2">
+              <div class="field"><label>Catégorie</label><select data-edit-item-categorie>${itemOptions(it.categorie, CATEGORIES)}</select></div>
+              <div class="field"><label>Action</label><select data-edit-item-action>${itemOptions(it.action, ACTIONS)}</select></div>
+            </div>
+            <div class="field"><label>Panne</label><input type="text" data-edit-item-panne value="${escapeHtml(it.panne)}"></div>
+            <div class="field" style="margin-bottom:0;"><label><input type="checkbox" data-edit-item-resolu ${it.resolu?'checked':''} style="width:auto; margin-right:6px;">Résolu</label></div>
+          </div>
+        `).join('')}
+        <div style="display:flex; gap:10px; margin-top:10px;">
+          <button class="btn btn-primary" data-save-trip-edit="${t.id}">Sauvegarder</button>
+          <button class="btn" data-cancel-trip-edit="${t.id}">Annuler</button>
+        </div>
+      </div>`;
+    }
+    return `
+      <div class="card" style="margin-bottom:10px;">
+        <div style="display:flex; justify-content:space-between; font-size:12.5px; color:var(--ink-soft);">
+          <span style="font-family:var(--mono);">${fmtDate(t.date)}</span>
+          ${t.km?`<span>${t.km} km</span>`:''}
+        </div>
+        <div style="display:flex; justify-content:space-between; align-items:center; gap:10px; margin-bottom:8px;">
+          <div style="font-weight:600;">${escapeHtml(t.motif)}</div>
+          <div style="display:flex; gap:8px; flex-wrap:wrap;">
+            <button class="btn btn-sm" data-edit-trip="${t.id}">Modifier</button>
+            <button class="btn btn-sm btn-danger-outline" data-delete-trip="${t.id}">Supprimer</button>
+          </div>
+        </div>
+        ${t.items.map(it=>`<div style="font-size:13px; margin-bottom:4px; display:flex; align-items:center; gap:8px; flex-wrap:wrap;">
+          <span class="badge ${it.resolu?'badge-ok':'badge-open'}" style="margin-right:6px;">${it.resolu?'résolu':'ouvert'}</span>
+          ${escapeHtml(it.categorie)} — ${escapeHtml(it.panne)} <span style="color:var(--ink-soft);">(${escapeHtml(it.action)})</span>
+          <button class="btn btn-sm btn-orange" data-toggle-status="${it.id}" data-trip-id="${t.id}" data-new-value="${it.resolu?0:1}">${it.resolu?'Réouvrir':'Marquer résolu'}</button>
+        </div>`).join('')}
+        ${t.notes?`<div style="font-size:12.5px; color:var(--ink-soft); margin-top:6px; border-top:1px solid var(--border); padding-top:6px;">${escapeHtml(t.notes)}</div>`:''}
+      </div>`;
+  }).join('') : '<div class="empty">Pas encore de visite enregistrée.</div>';
 
   document.getElementById('view-store-detail').innerHTML = `
     <span class="back-link" id="back-to-stores">← Retour aux magasins</span>
@@ -546,6 +648,51 @@ function renderStoreDetail(code){
       ${histHtml}
     </div>
   `;
+  document.querySelectorAll('[data-toggle-status]').forEach(btn=>{
+    btn.addEventListener('click', async (e)=>{
+      const tripId = e.currentTarget.dataset.tripId;
+      const itemId = e.currentTarget.dataset.toggleStatus;
+      const resolu = e.currentTarget.dataset.newValue === '1';
+      await updateItemStatus(tripId, itemId, resolu);
+      renderStoreDetail(code);
+      renderDashboard();
+      renderStores();
+      if(document.getElementById('view-history').classList.contains('active')) applyHistoryFilters();
+    });
+  });
+  document.querySelectorAll('[data-edit-trip]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      editingTripId = btn.dataset.editTrip;
+      renderStoreDetail(code);
+    });
+  });
+  document.querySelectorAll('[data-delete-trip]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      if(!confirm('Supprimer cette intervention ?')) return;
+      await deleteTrip(btn.dataset.deleteTrip);
+      editingTripId = null;
+      renderStoreDetail(code);
+      renderDashboard();
+      renderStores();
+    });
+  });
+  document.querySelectorAll('[data-delete-edit-item]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      if(!confirm('Supprimer cet équipement ?')) return;
+      await deleteItem(editingTripId, btn.dataset.deleteEditItem);
+      renderStoreDetail(code);
+    });
+  });
+  document.querySelectorAll('[data-save-trip-edit]').forEach(btn=>{
+    btn.addEventListener('click', async ()=>{
+      await saveTripEdits(btn.dataset.saveTripEdit);
+    });
+  });
+  document.querySelectorAll('[data-cancel-trip-edit]').forEach(btn=>{
+    btn.addEventListener('click', ()=>{
+      cancelTripEdit();
+    });
+  });
   document.getElementById('back-to-stores').addEventListener('click', ()=>{ goToView('stores'); renderStores(); });
 }
 
