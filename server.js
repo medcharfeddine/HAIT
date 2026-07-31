@@ -79,10 +79,26 @@ app.get('/config.json', (req, res) => {
     messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || null,
     appId: process.env.FIREBASE_APP_ID || null
   };
-  // If no useful keys, return empty object to signal fallback to localStorage
   const hasAny = Object.values(cfg).some(v => v);
+  if (hasAny) {
+    res.setHeader('Content-Type', 'application/json');
+    res.status(200).send(JSON.stringify(cfg));
+    return;
+  }
+
+  const localConfigPath = path.join(__dirname, 'config.json');
+  let localCfg = {};
+  if (fs.existsSync(localConfigPath)) {
+    try {
+      localCfg = JSON.parse(fs.readFileSync(localConfigPath, 'utf8'));
+    } catch (err) {
+      console.error('Failed to read local config.json', err);
+    }
+  }
+
+  const hasLocal = Object.values(localCfg).some(v => v);
   res.setHeader('Content-Type', 'application/json');
-  res.status(200).send(JSON.stringify(hasAny ? cfg : {}));
+  res.status(200).send(JSON.stringify(hasLocal ? localCfg : {}));
 });
 
 app.get('/api/data', (req, res) => {

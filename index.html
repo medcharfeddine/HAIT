@@ -266,7 +266,7 @@ async function initFirebaseFromServer(){
       tripsCollection = collection(db, 'trips');
       console.log('Firebase initialized from /config.json');
     }else{
-      console.log('No Firebase config provided by server; using localStorage fallback');
+      console.log('No Firebase config provided by server; Firebase unavailable');
     }
   }catch(e){
     console.error('Failed to fetch /config.json', e);
@@ -292,7 +292,6 @@ function refreshCurrentView(){
 }
 
 async function loadData(){
-  // If Firebase was initialized by the server, use it; otherwise fall back to localStorage
   if(storesCollection && tripsCollection){
     try{
       const storesSnapshot = await getDocs(storesCollection);
@@ -309,27 +308,24 @@ async function loadData(){
       onSnapshot(tripsCollection, snapshot => { trips = snapshot.docs.map(d => d.data()); refreshCurrentView(); }, err => console.error('Trips snapshot failed', err));
       return;
     }catch(e){
-      console.error('Firebase load failed, falling back to localStorage', e);
+      console.error('Firebase load failed', e);
     }
   }
-  // localStorage fallback
-  try{ const s = localStorage.getItem('ha-stores'); stores = s ? JSON.parse(s) : null; }catch(err){ stores = null; }
-  if(!stores){ stores = []; for(let i=1;i<=STORE_COUNT;i++) stores.push({code:'B'+pad(i), ville:''}); await saveStores(); }
-  try{ const t = localStorage.getItem('ha-trips'); trips = t ? JSON.parse(t) : []; }catch(err){ trips = []; }
+  stores = [];
+  for(let i=1;i<=STORE_COUNT;i++) stores.push({code:'B'+pad(i), ville:''});
+  trips = [];
 }
 async function saveStores(){
   if(storesCollection){
     try{ await Promise.all(stores.map(store => setDoc(doc(storesCollection, store.code), store))); }
     catch(e){ console.error('Failed to save stores to Firebase', e); }
   }
-  try{ localStorage.setItem('ha-stores', JSON.stringify(stores)); }catch(e){console.error(e);} 
 }
 async function saveTrips(){
   if(tripsCollection){
     try{ await Promise.all(trips.map(trip => setDoc(doc(tripsCollection, trip.id), trip))); }
     catch(e){ console.error('Failed to save trips to Firebase', e); }
   }
-  try{ localStorage.setItem('ha-trips', JSON.stringify(trips)); }catch(e){console.error(e);} 
 }
 
 async function updateItemStatus(tripId, itemId, resolu){
