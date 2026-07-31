@@ -16,9 +16,15 @@ self.addEventListener('activate', (e)=>{
 self.addEventListener('fetch', (e)=>{
   e.respondWith(
     caches.match(e.request).then(cached=>{
-      return cached || fetch(e.request).then(res=>{
-        const copy = res.clone();
-        caches.open(CACHE).then(c=>c.put(e.request, copy));
+      if (cached) return cached;
+      if (!e.request.url.startsWith('http')) {
+        return fetch(e.request);
+      }
+      return fetch(e.request).then(res=>{
+        if (res && res.status === 200 && res.type !== 'opaque') {
+          const copy = res.clone();
+          caches.open(CACHE).then(c=>c.put(e.request, copy));
+        }
         return res;
       }).catch(()=>cached);
     })
