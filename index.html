@@ -249,12 +249,13 @@ let editingTripId = null;
 let activeStoreCode = null;
 
 const FIREBASE_CONFIG = {
-  apiKey: "AIzaSyAJjOCKR1YP_YoKejwFrQUvRvLVoHsK0gQ",
-  authDomain: "hait-17b5b.firebaseapp.com",
-  projectId: "hait-17b5b",
-  storageBucket: "hait-17b5b.firebasestorage.app",
-  messagingSenderId: "452870815965",
-  appId: "1:452870815965:web:4ddceb6be854c748e25b34"
+  //get info from env file
+  apiKey: process.env.apiKey,
+  authDomain: process.env.authDomain,
+  projectId: process.env.projectId,
+  storageBucket: process.env.storageBucket,
+  messagingSenderId: process.env.messagingSenderId,
+  appId: process.env.appId
 };
 
 const firebaseApp = initializeApp(FIREBASE_CONFIG);
