@@ -1,0 +1,622 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Suivi Interventions IT — Réseau HA</title>
+<meta name="theme-color" content="#1E4459">
+<link rel="manifest" href="manifest.json">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="icon-192.png">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@500;600&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg: #EBEFF2;
+  --surface: #FFFFFF;
+  --surface-2: #F4F6F8;
+  --ink: #16202B;
+  --ink-soft: #5B6672;
+  --border: #D7DCE1;
+  --border-strong: #B9C2CA;
+  --steel: #2C5F7C;
+  --steel-dark: #1E4459;
+  --orange: #D9622B;
+  --orange-bg: #FBE9E0;
+  --orange-text: #92401A;
+  --green: #3F7D53;
+  --green-bg: #E4F0E7;
+  --green-text: #285838;
+  --amber-bg: #FCEFD8;
+  --amber-text: #8A5A0B;
+  --radius: 10px;
+  --mono: 'IBM Plex Mono', 'SFMono-Regular', Consolas, monospace;
+  --sans: 'Inter', system-ui, -apple-system, Segoe UI, sans-serif;
+}
+*{box-sizing:border-box;}
+body{
+  margin:0; background:var(--bg); color:var(--ink); font-family:var(--sans);
+  -webkit-font-smoothing:antialiased;
+}
+.wrap{max-width:1080px; margin:0 auto; padding:20px 20px 80px;}
+header.app{
+  display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:14px;
+  padding:18px 20px; background:var(--steel-dark); border-radius:var(--radius);
+  color:#fff; margin-bottom:16px;
+}
+header.app h1{font-size:19px; font-weight:600; margin:0; letter-spacing:.2px;}
+header.app .sub{font-size:12.5px; color:#B9CBD6; margin-top:3px; font-family:var(--mono);}
+.stat-row{display:flex; gap:10px; flex-wrap:wrap;}
+.stat-pill{
+  background:rgba(255,255,255,.1); border:1px solid rgba(255,255,255,.18);
+  border-radius:8px; padding:7px 12px; font-size:12px; text-align:center; min-width:74px;
+}
+.stat-pill .n{font-family:var(--mono); font-size:17px; font-weight:600; display:block;}
+.stat-pill .l{color:#B9CBD6;}
+
+nav.tabs{display:flex; gap:6px; margin-bottom:18px; flex-wrap:wrap;}
+nav.tabs button{
+  border:1px solid var(--border); background:var(--surface); color:var(--ink-soft);
+  padding:9px 16px; border-radius:8px; font-size:13.5px; font-weight:500; cursor:pointer;
+  font-family:var(--sans);
+}
+nav.tabs button.active{background:var(--steel); color:#fff; border-color:var(--steel);}
+nav.tabs button:hover:not(.active){border-color:var(--border-strong);}
+
+.view{display:none;}
+.view.active{display:block;}
+
+.card{background:var(--surface); border:1px solid var(--border); border-radius:var(--radius); padding:18px 20px; margin-bottom:14px;}
+.card h2{font-size:15px; margin:0 0 14px; font-weight:600;}
+.card h3{font-size:13px; margin:0 0 8px; font-weight:600; color:var(--ink-soft); text-transform:uppercase; letter-spacing:.4px;}
+
+.grid-2{display:grid; grid-template-columns:1fr 1fr; gap:12px;}
+.grid-3{display:grid; grid-template-columns:1fr 1fr 1fr; gap:12px;}
+@media (max-width:680px){.grid-2,.grid-3{grid-template-columns:1fr;}}
+
+label{display:block; font-size:12.5px; font-weight:500; color:var(--ink-soft); margin-bottom:4px;}
+input[type=text], input[type=date], input[type=number], select, textarea{
+  width:100%; padding:9px 10px; border:1px solid var(--border); border-radius:7px;
+  font-size:14px; font-family:var(--sans); background:var(--surface-2); color:var(--ink);
+}
+textarea{resize:vertical; min-height:56px;}
+.field{margin-bottom:12px;}
+
+.btn{
+  border:1px solid var(--border-strong); background:var(--surface); color:var(--ink);
+  padding:9px 16px; border-radius:8px; font-size:13.5px; font-weight:500; cursor:pointer; font-family:var(--sans);
+}
+.btn:hover{background:var(--surface-2);}
+.btn-primary{background:var(--steel); border-color:var(--steel); color:#fff;}
+.btn-primary:hover{background:var(--steel-dark);}
+.btn-orange{background:var(--orange); border-color:var(--orange); color:#fff;}
+.btn-sm{padding:5px 10px; font-size:12px;}
+.btn-danger-outline{border-color:#D8B0A2; color:#92401A;}
+
+.code-tag{
+  font-family:var(--mono); font-weight:600; font-size:12.5px; letter-spacing:.5px;
+  background:var(--surface-2); border:1px solid var(--border-strong); color:var(--steel-dark);
+  padding:2px 9px 2px 12px; border-radius:3px; position:relative; display:inline-block;
+}
+.code-tag::before{
+  content:''; position:absolute; left:5px; top:50%; width:3px; height:3px; border-radius:50%;
+  background:var(--border-strong); transform:translateY(-50%);
+}
+
+.item-row{
+  border:1px solid var(--border); border-radius:8px; padding:12px; margin-bottom:10px; background:var(--surface-2);
+  position:relative;
+}
+.item-row .rm{position:absolute; top:8px; right:8px;}
+
+.badge{display:inline-block; font-size:11.5px; font-weight:600; padding:3px 9px; border-radius:20px;}
+.badge-open{background:var(--orange-bg); color:var(--orange-text);}
+.badge-ok{background:var(--green-bg); color:var(--green-text);}
+.badge-count{background:var(--amber-bg); color:var(--amber-text); font-family:var(--mono);}
+
+.stores-grid{display:grid; grid-template-columns:repeat(auto-fill, minmax(150px,1fr)); gap:10px;}
+.store-card{
+  border:1px solid var(--border); background:var(--surface); border-radius:9px; padding:12px;
+  cursor:pointer; transition:border-color .15s;
+}
+.store-card:hover{border-color:var(--steel);}
+.store-card .ville{font-size:12px; color:var(--ink-soft); margin-top:4px;}
+.store-card .foot{display:flex; justify-content:space-between; align-items:center; margin-top:10px;}
+
+table{width:100%; border-collapse:collapse; font-size:13px;}
+table th{text-align:left; font-size:11.5px; text-transform:uppercase; letter-spacing:.3px; color:var(--ink-soft); border-bottom:1px solid var(--border); padding:8px 6px; font-weight:600;}
+table td{padding:9px 6px; border-bottom:1px solid var(--border); vertical-align:top;}
+table tr:hover td{background:var(--surface-2);}
+
+.filters{display:flex; gap:10px; flex-wrap:wrap; margin-bottom:14px; align-items:flex-end;}
+.filters .field{margin-bottom:0; min-width:140px;}
+
+.empty{color:var(--ink-soft); font-size:13.5px; text-align:center; padding:26px 0;}
+.needs-item{border-left:3px solid var(--orange); background:var(--orange-bg); padding:10px 12px; border-radius:0 7px 7px 0; margin-bottom:8px;}
+.needs-item .top{display:flex; justify-content:space-between; gap:10px; font-size:12.5px; color:var(--orange-text); font-weight:600;}
+.needs-item .desc{font-size:13.5px; margin-top:4px;}
+.needs-item .age{font-family:var(--mono); font-size:11px;}
+
+.back-link{color:var(--steel); cursor:pointer; font-size:13px; font-weight:500; margin-bottom:12px; display:inline-block;}
+.toolbar{display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; flex-wrap:wrap; gap:10px;}
+.hint{font-size:12px; color:var(--ink-soft); margin-top:10px;}
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <header class="app">
+    <div>
+      <h1>Suivi Interventions IT — Réseau HA</h1>
+      <div class="sub" id="header-sub">33 magasins · Base Sfax</div>
+    </div>
+    <div class="stat-row" id="header-stats"></div>
+  </header>
+
+  <nav class="tabs">
+    <button data-view="dashboard" class="active">Tableau de bord</button>
+    <button data-view="form">Nouvelle intervention</button>
+    <button data-view="stores">Magasins</button>
+    <button data-view="history">Historique</button>
+  </nav>
+
+  <section class="view active" id="view-dashboard"></section>
+
+  <section class="view" id="view-form">
+    <div class="card">
+      <h2>Nouvelle intervention</h2>
+      <div class="grid-3">
+        <div class="field">
+          <label>Magasin</label>
+          <select id="f-store"></select>
+        </div>
+        <div class="field">
+          <label>Date</label>
+          <input type="date" id="f-date">
+        </div>
+        <div class="field">
+          <label>Km parcourus (aller-retour, optionnel)</label>
+          <input type="number" id="f-km" min="0" placeholder="ex: 480">
+        </div>
+      </div>
+      <div class="field">
+        <label>Motif de l'appel</label>
+        <input type="text" id="f-motif" placeholder="ex: imprimante caisse ne répond plus">
+      </div>
+
+      <h3 style="margin-top:18px;">Équipements / actions effectuées</h3>
+      <div id="items-container"></div>
+      <button class="btn" id="add-item" type="button">+ Ajouter un équipement</button>
+
+      <div class="field" style="margin-top:16px;">
+        <label>Notes générales sur la visite</label>
+        <textarea id="f-notes" placeholder="contexte, remarques, ce qui reste à faire..."></textarea>
+      </div>
+
+      <div style="margin-top:16px; display:flex; gap:10px;">
+        <button class="btn btn-primary" id="save-trip" type="button">Enregistrer l'intervention</button>
+        <button class="btn" id="reset-form" type="button">Réinitialiser</button>
+      </div>
+    </div>
+  </section>
+
+  <section class="view" id="view-stores">
+    <div class="card">
+      <div class="toolbar">
+        <h2 style="margin:0;">33 magasins</h2>
+        <button class="btn btn-sm" id="edit-stores-toggle">Modifier noms / villes</button>
+      </div>
+      <div class="stores-grid" id="stores-grid"></div>
+    </div>
+  </section>
+
+  <section class="view" id="view-store-detail"></section>
+
+  <section class="view" id="view-history">
+    <div class="card">
+      <div class="toolbar">
+        <h2 style="margin:0;">Historique des interventions</h2>
+        <button class="btn btn-sm" id="export-csv">Exporter CSV</button>
+      </div>
+      <div class="filters">
+        <div class="field">
+          <label>Magasin</label>
+          <select id="hist-filter-store"><option value="">Tous</option></select>
+        </div>
+        <div class="field">
+          <label>Uniquement besoins ouverts</label>
+          <select id="hist-filter-open">
+            <option value="">Tout</option>
+            <option value="1">Oui</option>
+          </select>
+        </div>
+      </div>
+      <div id="history-list"></div>
+    </div>
+  </section>
+
+</div>
+
+<script>
+const STORE_COUNT = 33;
+let stores = [];
+let trips = [];
+let editingStores = false;
+
+const CATEGORIES = ["Ordinateur","Imprimante","Caméra / vidéosurveillance","Réseau (switch/routeur/wifi)","Caisse / TPE","Autre"];
+const ACTIONS = ["Réparé sur place","Remplacé (matériel neuf)","Remplacé (matériel reconditionné)","Diagnostiqué — pièce nécessaire","Diagnostiqué — en attente de décision","Non résolu"];
+const ACTIONS_AUTO_OPEN = ["Diagnostiqué — pièce nécessaire","Diagnostiqué — en attente de décision","Non résolu"];
+
+function pad(n){return n.toString().padStart(2,'0');}
+function todayStr(){const d=new Date();return d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());}
+function uid(){return Date.now().toString(36)+Math.random().toString(36).slice(2,7);}
+function fmtDate(s){const [y,m,d]=s.split('-');return d+'/'+m+'/'+y;}
+function daysSince(s){const d=new Date(s);const now=new Date();return Math.floor((now-d)/86400000);}
+
+async function loadData(){
+  try{
+    const s = localStorage.getItem('ha-stores');
+    stores = s ? JSON.parse(s) : null;
+  }catch(e){ stores = null; }
+  if(!stores){
+    stores = [];
+    for(let i=1;i<=STORE_COUNT;i++){
+      stores.push({code:'B'+pad(i), ville:''});
+    }
+    await saveStores();
+  }
+  try{
+    const t = localStorage.getItem('ha-trips');
+    trips = t ? JSON.parse(t) : [];
+  }catch(e){ trips = []; }
+}
+async function saveStores(){
+  try{ localStorage.setItem('ha-stores', JSON.stringify(stores)); }catch(e){console.error(e);}
+}
+async function saveTrips(){
+  try{ localStorage.setItem('ha-trips', JSON.stringify(trips)); }catch(e){console.error(e);}
+}
+
+function allOpenItems(){
+  const out=[];
+  trips.forEach(t=>{
+    t.items.forEach(it=>{
+      if(!it.resolu){
+        out.push({storeCode:t.storeCode, date:t.date, tripId:t.id, ...it});
+      }
+    });
+  });
+  return out;
+}
+
+function storeVille(code){
+  const s = stores.find(x=>x.code===code);
+  return s && s.ville ? s.ville : '';
+}
+
+// ---------- NAV ----------
+document.querySelectorAll('nav.tabs button').forEach(btn=>{
+  btn.addEventListener('click', ()=>{
+    document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.remove('active'));
+    btn.classList.add('active');
+    document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+    document.getElementById('view-'+btn.dataset.view).classList.add('active');
+    if(btn.dataset.view==='dashboard') renderDashboard();
+    if(btn.dataset.view==='stores') renderStores();
+    if(btn.dataset.view==='history') renderHistory();
+    if(btn.dataset.view==='form') prepForm();
+  });
+});
+
+function goToView(name){
+  document.querySelectorAll('nav.tabs button').forEach(b=>b.classList.toggle('active', b.dataset.view===name));
+  document.querySelectorAll('.view').forEach(v=>v.classList.remove('active'));
+  document.getElementById('view-'+name).classList.add('active');
+}
+
+// ---------- HEADER STATS ----------
+function renderHeaderStats(){
+  const now = new Date();
+  const thisMonth = trips.filter(t=>{
+    const d = new Date(t.date);
+    return d.getMonth()===now.getMonth() && d.getFullYear()===now.getFullYear();
+  });
+  const openCount = allOpenItems().length;
+  const storesWithNeeds = new Set(allOpenItems().map(i=>i.storeCode)).size;
+  document.getElementById('header-stats').innerHTML = `
+    <div class="stat-pill"><span class="n">${thisMonth.length}</span><span class="l">interv. ce mois</span></div>
+    <div class="stat-pill"><span class="n">${trips.length}</span><span class="l">total</span></div>
+    <div class="stat-pill"><span class="n">${openCount}</span><span class="l">besoins ouverts</span></div>
+    <div class="stat-pill"><span class="n">${storesWithNeeds}</span><span class="l">magasins concernés</span></div>
+  `;
+}
+
+// ---------- DASHBOARD ----------
+function renderDashboard(){
+  renderHeaderStats();
+  const open = allOpenItems().sort((a,b)=> new Date(a.date) - new Date(b.date));
+  const byCat = {};
+  trips.forEach(t=>t.items.forEach(it=>{byCat[it.categorie]=(byCat[it.categorie]||0)+1;}));
+  const maxCat = Math.max(1, ...Object.values(byCat));
+
+  let needsHtml = '';
+  if(open.length===0){
+    needsHtml = '<div class="empty">Aucun besoin ouvert. Tout est à jour.</div>';
+  }else{
+    open.forEach(it=>{
+      needsHtml += `<div class="needs-item">
+        <div class="top"><span><span class="code-tag">${it.storeCode}</span> ${storeVille(it.storeCode)}</span><span class="age">ouvert depuis ${daysSince(it.date)}j</span></div>
+        <div class="desc">${escapeHtml(it.categorie)} — ${escapeHtml(it.panne)}<br><span style="color:var(--ink-soft); font-weight:400;">Action: ${escapeHtml(it.action)}</span></div>
+      </div>`;
+    });
+  }
+
+  let catHtml = '';
+  Object.entries(byCat).sort((a,b)=>b[1]-a[1]).forEach(([cat,n])=>{
+    const pct = Math.round(n/maxCat*100);
+    catHtml += `<div style="margin-bottom:8px;">
+      <div style="display:flex; justify-content:space-between; font-size:12.5px; margin-bottom:3px;"><span>${escapeHtml(cat)}</span><span style="font-family:var(--mono);">${n}</span></div>
+      <div style="background:var(--surface-2); border-radius:5px; height:7px;"><div style="width:${pct}%; background:var(--steel); height:7px; border-radius:5px;"></div></div>
+    </div>`;
+  });
+  if(!catHtml) catHtml = '<div class="empty">Pas encore de données.</div>';
+
+  document.getElementById('view-dashboard').innerHTML = `
+    <div class="grid-2">
+      <div class="card">
+        <h2>Besoins ouverts (par ancienneté)</h2>
+        ${needsHtml}
+      </div>
+      <div class="card">
+        <h2>Répartition par catégorie d'équipement</h2>
+        ${catHtml}
+      </div>
+    </div>
+  `;
+}
+
+function escapeHtml(s){
+  if(s===undefined||s===null) return '';
+  return s.replace(/[&<>"']/g, c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+// ---------- FORM ----------
+let itemCounter = 0;
+function itemRowHtml(id){
+  return `<div class="item-row" data-id="${id}">
+    <button class="btn btn-sm rm" type="button" data-remove="${id}">Retirer</button>
+    <div class="grid-2">
+      <div class="field">
+        <label>Catégorie</label>
+        <select data-role="categorie">${CATEGORIES.map(c=>`<option>${c}</option>`).join('')}</select>
+      </div>
+      <div class="field">
+        <label>Action effectuée</label>
+        <select data-role="action">${ACTIONS.map(a=>`<option>${a}</option>`).join('')}</select>
+      </div>
+    </div>
+    <div class="field">
+      <label>Panne / problème constaté</label>
+      <input type="text" data-role="panne" placeholder="ex: carte réseau grillée, bourrage papier récurrent...">
+    </div>
+    <div class="field" style="margin-bottom:0;">
+      <label><input type="checkbox" data-role="resolu" checked style="width:auto; margin-right:6px;">Résolu à l'issue de la visite</label>
+    </div>
+  </div>`;
+}
+function addItemRow(){
+  itemCounter++;
+  const div = document.createElement('div');
+  div.innerHTML = itemRowHtml(itemCounter);
+  document.getElementById('items-container').appendChild(div.firstElementChild);
+  wireItemRow(itemCounter);
+}
+function wireItemRow(id){
+  const row = document.querySelector(`.item-row[data-id="${id}"]`);
+  row.querySelector('[data-remove]').addEventListener('click', ()=>row.remove());
+  row.querySelector('[data-role="action"]').addEventListener('change', (e)=>{
+    const cb = row.querySelector('[data-role="resolu"]');
+    cb.checked = !ACTIONS_AUTO_OPEN.includes(e.target.value);
+  });
+}
+document.getElementById('add-item').addEventListener('click', addItemRow);
+
+function prepForm(){
+  const sel = document.getElementById('f-store');
+  sel.innerHTML = stores.map(s=>`<option value="${s.code}">${s.code}${s.ville?' — '+escapeHtml(s.ville):''}</option>`).join('');
+  document.getElementById('f-date').value = todayStr();
+}
+
+document.getElementById('reset-form').addEventListener('click', ()=>{
+  document.getElementById('f-motif').value='';
+  document.getElementById('f-km').value='';
+  document.getElementById('f-notes').value='';
+  document.getElementById('items-container').innerHTML='';
+  document.getElementById('f-date').value = todayStr();
+});
+
+document.getElementById('save-trip').addEventListener('click', async ()=>{
+  const storeCode = document.getElementById('f-store').value;
+  const date = document.getElementById('f-date').value;
+  const motif = document.getElementById('f-motif').value.trim();
+  const km = document.getElementById('f-km').value;
+  const notes = document.getElementById('f-notes').value.trim();
+  if(!date || !motif){
+    alert('Merci de renseigner au minimum la date et le motif de l\'appel.');
+    return;
+  }
+  const items = [];
+  document.querySelectorAll('#items-container .item-row').forEach(row=>{
+    const categorie = row.querySelector('[data-role="categorie"]').value;
+    const action = row.querySelector('[data-role="action"]').value;
+    const panne = row.querySelector('[data-role="panne"]').value.trim();
+    const resolu = row.querySelector('[data-role="resolu"]').checked;
+    if(panne){
+      items.push({id:uid(), categorie, action, panne, resolu});
+    }
+  });
+  const trip = {
+    id: uid(), storeCode, date, motif, km: km?Number(km):null, notes, items,
+    createdAt: new Date().toISOString()
+  };
+  trips.push(trip);
+  await saveTrips();
+  document.getElementById('reset-form').click();
+  goToView('dashboard');
+  renderDashboard();
+});
+
+// ---------- STORES ----------
+function renderStores(){
+  const grid = document.getElementById('stores-grid');
+  const open = allOpenItems();
+  grid.innerHTML = stores.map(s=>{
+    const n = open.filter(i=>i.storeCode===s.code).length;
+    const badge = n>0
+      ? `<span class="badge badge-open">${n} en attente</span>`
+      : `<span class="badge badge-ok">OK</span>`;
+    if(editingStores){
+      return `<div class="store-card" style="cursor:default;">
+        <span class="code-tag">${s.code}</span>
+        <input type="text" data-store-edit="${s.code}" value="${escapeHtml(s.ville)}" placeholder="ville / adresse" style="margin-top:8px; font-size:12.5px;">
+      </div>`;
+    }
+    return `<div class="store-card" data-open="${s.code}">
+      <span class="code-tag">${s.code}</span>
+      <div class="ville">${escapeHtml(s.ville)||'—'}</div>
+      <div class="foot">${badge}<span style="font-size:11.5px; color:var(--ink-soft);">${trips.filter(t=>t.storeCode===s.code).length} visites</span></div>
+    </div>`;
+  }).join('');
+
+  if(editingStores){
+    grid.querySelectorAll('[data-store-edit]').forEach(inp=>{
+      inp.addEventListener('change', async (e)=>{
+        const store = stores.find(s=>s.code===e.target.dataset.storeEdit);
+        store.ville = e.target.value.trim();
+        await saveStores();
+      });
+    });
+  }else{
+    grid.querySelectorAll('[data-open]').forEach(card=>{
+      card.addEventListener('click', ()=>renderStoreDetail(card.dataset.open));
+    });
+  }
+}
+document.getElementById('edit-stores-toggle').addEventListener('click', (e)=>{
+  editingStores = !editingStores;
+  e.target.textContent = editingStores ? 'Terminer' : 'Modifier noms / villes';
+  renderStores();
+});
+
+function renderStoreDetail(code){
+  goToView('store-detail');
+  const s = stores.find(x=>x.code===code);
+  const storeTrips = trips.filter(t=>t.storeCode===code).sort((a,b)=>new Date(b.date)-new Date(a.date));
+  const open = allOpenItems().filter(i=>i.storeCode===code);
+
+  let openHtml = open.length ? open.map(it=>`
+    <div class="needs-item">
+      <div class="top"><span>${escapeHtml(it.categorie)}</span><span class="age">${daysSince(it.date)}j</span></div>
+      <div class="desc">${escapeHtml(it.panne)}<br><span style="color:var(--ink-soft); font-weight:400;">Action notée: ${escapeHtml(it.action)}</span></div>
+    </div>`).join('') : '<div class="empty">Aucun besoin ouvert pour ce magasin.</div>';
+
+  let histHtml = storeTrips.length ? storeTrips.map(t=>`
+    <div class="card" style="margin-bottom:10px;">
+      <div style="display:flex; justify-content:space-between; font-size:12.5px; color:var(--ink-soft);">
+        <span style="font-family:var(--mono);">${fmtDate(t.date)}</span>
+        ${t.km?`<span>${t.km} km</span>`:''}
+      </div>
+      <div style="font-weight:600; margin:4px 0 8px;">${escapeHtml(t.motif)}</div>
+      ${t.items.map(it=>`<div style="font-size:13px; margin-bottom:4px;">
+        <span class="badge ${it.resolu?'badge-ok':'badge-open'}" style="margin-right:6px;">${it.resolu?'résolu':'ouvert'}</span>
+        ${escapeHtml(it.categorie)} — ${escapeHtml(it.panne)} <span style="color:var(--ink-soft);">(${escapeHtml(it.action)})</span>
+      </div>`).join('')}
+      ${t.notes?`<div style="font-size:12.5px; color:var(--ink-soft); margin-top:6px; border-top:1px solid var(--border); padding-top:6px;">${escapeHtml(t.notes)}</div>`:''}
+    </div>`).join('') : '<div class="empty">Pas encore de visite enregistrée.</div>';
+
+  document.getElementById('view-store-detail').innerHTML = `
+    <span class="back-link" id="back-to-stores">← Retour aux magasins</span>
+    <div class="card">
+      <h2><span class="code-tag">${code}</span> ${escapeHtml(s.ville)}</h2>
+      <h3>Besoins en attente</h3>
+      ${openHtml}
+    </div>
+    <div class="card">
+      <h3 style="margin-bottom:12px;">Historique des visites (${storeTrips.length})</h3>
+      ${histHtml}
+    </div>
+  `;
+  document.getElementById('back-to-stores').addEventListener('click', ()=>{ goToView('stores'); renderStores(); });
+}
+
+// ---------- HISTORY ----------
+function renderHistory(){
+  const selStore = document.getElementById('hist-filter-store');
+  selStore.innerHTML = '<option value="">Tous</option>' + stores.map(s=>`<option value="${s.code}">${s.code}</option>`).join('');
+  applyHistoryFilters();
+}
+document.getElementById('hist-filter-store').addEventListener('change', applyHistoryFilters);
+document.getElementById('hist-filter-open').addEventListener('change', applyHistoryFilters);
+
+function applyHistoryFilters(){
+  const storeF = document.getElementById('hist-filter-store').value;
+  const openF = document.getElementById('hist-filter-open').value;
+  let list = [...trips].sort((a,b)=>new Date(b.date)-new Date(a.date));
+  if(storeF) list = list.filter(t=>t.storeCode===storeF);
+  if(openF) list = list.filter(t=>t.items.some(i=>!i.resolu));
+
+  if(list.length===0){
+    document.getElementById('history-list').innerHTML = '<div class="empty">Aucune intervention pour ces filtres.</div>';
+    return;
+  }
+  document.getElementById('history-list').innerHTML = `
+    <table>
+      <thead><tr><th>Date</th><th>Magasin</th><th>Motif</th><th>Équipements</th><th>Km</th></tr></thead>
+      <tbody>
+        ${list.map(t=>`<tr>
+          <td style="font-family:var(--mono); white-space:nowrap;">${fmtDate(t.date)}</td>
+          <td><span class="code-tag">${t.storeCode}</span></td>
+          <td>${escapeHtml(t.motif)}</td>
+          <td>${t.items.map(it=>`<span class="badge ${it.resolu?'badge-ok':'badge-open'}" style="margin:1px;">${escapeHtml(it.categorie)}</span>`).join(' ')||'<span style="color:var(--ink-soft);">—</span>'}</td>
+          <td>${t.km||'—'}</td>
+        </tr>`).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+document.getElementById('export-csv').addEventListener('click', ()=>{
+  const rows = [['Date','Magasin','Ville','Motif','Km','Categorie','Panne','Action','Resolu','Notes']];
+  trips.forEach(t=>{
+    if(t.items.length===0){
+      rows.push([t.date,t.storeCode,storeVille(t.storeCode),t.motif,t.km||'','','','','',t.notes||'']);
+    }else{
+      t.items.forEach(it=>{
+        rows.push([t.date,t.storeCode,storeVille(t.storeCode),t.motif,t.km||'',it.categorie,it.panne,it.action,it.resolu?'oui':'non',t.notes||'']);
+      });
+    }
+  });
+  const csv = rows.map(r=>r.map(v=>`"${String(v).replace(/"/g,'""')}"`).join(';')).join('\\n');
+  const blob = new Blob(['\\ufeff'+csv], {type:'text/csv;charset=utf-8;'});
+  const url = URL.createObjectURL(blob);
+  const a = document.createElement('a');
+  a.href = url; a.download = 'interventions-ha-'+todayStr()+'.csv';
+  document.body.appendChild(a); a.click(); document.body.removeChild(a);
+  URL.revokeObjectURL(url);
+});
+
+// ---------- INIT ----------
+(async function init(){
+  await loadData();
+  prepForm();
+  renderDashboard();
+})();
+
+if('serviceWorker' in navigator){
+  window.addEventListener('load', ()=>{
+    navigator.serviceWorker.register('sw.js').catch(()=>{});
+  });
+}
+</script>
+</body>
+</html>
