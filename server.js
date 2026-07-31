@@ -1,12 +1,16 @@
+require('dotenv').config();
 const express = require('express');
 const fs = require('fs');
 const path = require('path');
 
 const app = express();
-const dataDir = path.join(__dirname, 'data');
+// Allow Render (or other hosts) to provide a persistent data directory via DATA_DIR
+const dataDir = process.env.DATA_DIR ? path.resolve(process.env.DATA_DIR) : path.join(__dirname, 'data');
 const storesFile = path.join(dataDir, 'stores.json');
 const tripsFile = path.join(dataDir, 'trips.json');
 const PORT = process.env.PORT || 3000;
+// Simple CORS allow; you can set ALLOWED_ORIGIN env var for stricter policy
+const ALLOWED_ORIGIN = process.env.ALLOWED_ORIGIN || '*';
 
 function ensureDataDir() {
   if (!fs.existsSync(dataDir)) {
@@ -47,6 +51,40 @@ if (!fs.existsSync(tripsFile)) {
 app.use(express.json());
 app.use(express.static(path.join(__dirname)));
 
+// Basic CORS support so frontends (Vercel, mobile) can call this API
+app.use((req, res, next) => {
+  res.setHeader('Access-Control-Allow-Origin', ALLOWED_ORIGIN);
+  res.setHeader('Access-Control-Allow-Headers', 'Content-Type');
+  if (req.method === 'OPTIONS') {
+    res.setHeader('Access-Control-Allow-Methods', 'GET,POST,OPTIONS');
+    return res.sendStatus(200);
+  }
+  next();
+});
+
+// Health check for Render
+app.get('/health', (req, res) => {
+  res.json({ status: 'ok', dataDir, pid: process.pid });
+});
+
+// Expose runtime config (e.g. Firebase client config) to the frontend.
+// Set env vars: FIREBASE_API_KEY, FIREBASE_AUTH_DOMAIN, FIREBASE_PROJECT_ID,
+// FIREBASE_STORAGE_BUCKET, FIREBASE_MESSAGING_SENDER_ID, FIREBASE_APP_ID
+app.get('/config.json', (req, res) => {
+  const cfg = {
+    apiKey: process.env.FIREBASE_API_KEY || null,
+    authDomain: process.env.FIREBASE_AUTH_DOMAIN || null,
+    projectId: process.env.FIREBASE_PROJECT_ID || null,
+    storageBucket: process.env.FIREBASE_STORAGE_BUCKET || null,
+    messagingSenderId: process.env.FIREBASE_MESSAGING_SENDER_ID || null,
+    appId: process.env.FIREBASE_APP_ID || null
+  };
+  // If no useful keys, return empty object to signal fallback to localStorage
+  const hasAny = Object.values(cfg).some(v => v);
+  res.setHeader('Content-Type', 'application/json');
+  res.status(200).send(JSON.stringify(hasAny ? cfg : {}));
+});
+
 app.get('/api/data', (req, res) => {
   res.json({
     stores: readJson(storesFile, defaultStores()),
@@ -75,5 +113,6 @@ app.post('/api/trips', (req, res) => {
 });
 
 app.listen(PORT, () => {
-  console.log(`Server running at http://localhost:${PORT}`);
+  console.log(`Server running on port ${PORT}`);
+  console.log(`Data directory: ${dataDir}`);
 });
